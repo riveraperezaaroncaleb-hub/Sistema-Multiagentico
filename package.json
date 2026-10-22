@@ -1,0 +1,21 @@
+{
+  "name": "sistema-multiagentico-ecosistema",
+  "version": "1.0.0",
+  "description": "Ecosistema Multi-IA coordinado con pipeline de costos, seguridad VibeScan y recibos criptográficos",
+  "scripts": {
+    "dev:backend": "node backend/src/server.js",
+    "dev:frontend": "npm run --prefix frontend dev",
+    "test:backend": "npm test --prefix backend",
+    "build:frontend": "npm run --prefix frontend build"
+  },
+  "keywords": [
+    "multi-agent",
+    "ai-orchestration",
+    "byok",
+    "vibescan",
+    "token-limiter",
+    "ledgerproof"
+  ],
+  "author": "",
+  "license": "ISC"
+}
