@@ -1,0 +1,52 @@
+[
+  {
+    "id": "openai",
+    "name": "OpenAI",
+    "model": "gpt-4o-mini"
+  },
+  {
+    "id": "deepseek",
+    "name": "DeepSeek",
+    "model": "deepseek-chat"
+  },
+  {
+    "id": "openrouter",
+    "name": "OpenRouter",
+    "model": "openai/gpt-4o-mini"
+  },
+  {
+    "id": "groq",
+    "name": "Groq",
+    "model": "llama-3.3-70b-versatile"
+  },
+  {
+    "id": "gemini",
+    "name": "Google Gemini",
+    "model": "gemini-1.5-flash"
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic Claude",
+    "model": "claude-3-5-sonnet-20241022"
+  },
+  {
+    "id": "mistral",
+    "name": "Mistral",
+    "model": "mistral-small-latest"
+  },
+  {
+    "id": "xai",
+    "name": "xAI Grok",
+    "model": "grok-3-mini"
+  },
+  {
+    "id": "together",
+    "name": "Together AI",
+    "model": "meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo"
+  },
+  {
+    "id": "cerebras",
+    "name": "Cerebras",
+    "model": "llama-3.3-70b"
+  }
+]

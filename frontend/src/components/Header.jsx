@@ -7,7 +7,8 @@ export default function Header({
   onOpenScreenShare,
   isInspectionOpen,
   onToggleInspection,
-  keysCount = 0
+  keysCount = 0,
+  specialistName = 'Directora'
 }) {
   const dailySpent = budget?.dailySpent || 0;
   const dailyLimit = budget?.dailyLimit || 1.0;
@@ -45,7 +46,7 @@ export default function Header({
             backgroundColor: 'var(--secondary)'
           }} />
           <span className="type-label" style={{ color: 'var(--on-surface)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <strong>Directora</strong> • En línea
+            <strong>{specialistName}</strong> • En línea
           </span>
         </div>
 

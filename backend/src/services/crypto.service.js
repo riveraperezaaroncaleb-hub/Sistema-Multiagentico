@@ -5,13 +5,17 @@ require('dotenv').config();
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16; // 128 bits para el IV de GCM
 const AUTH_TAG_LENGTH = 16; // 128 bits de tag de autenticación
+const KEY_DECRYPTION_ERROR = 'La API Key guardada no se puede descifrar con la clave maestra actual. Vuelve a introducirla en “Llaves (BYOK)” y guárdala para reemplazar esta configuración. Revisa que APP_ENCRYPTION_SECRET permanezca estable entre reinicios.';
 
 /**
  * Obtiene la clave maestra de 256 bits (32 bytes) desde las variables de entorno.
  * Si no viene en 32 bytes exactos, la normaliza con SHA-256.
  */
 function getMasterKey() {
-  const secret = process.env.APP_ENCRYPTION_SECRET || 'ecosistema_multi_ia_default_master_secret_2026_dev_key';
+  const secret = process.env.APP_ENCRYPTION_SECRET;
+  if (!secret) {
+    throw new Error('APP_ENCRYPTION_SECRET no está configurada. Define una clave estable en backend/.env antes de guardar o usar API Keys.');
+  }
   if (secret.length === 64 && /^[0-9a-fA-F]+$/.test(secret)) {
     return Buffer.from(secret, 'hex');
   }
@@ -64,10 +68,13 @@ function decrypt({ encryptedData, iv, authTag }) {
   const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(iv, 'hex'));
   decipher.setAuthTag(Buffer.from(authTag, 'hex'));
 
-  let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-
-  return decrypted;
+  try {
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    throw new Error(KEY_DECRYPTION_ERROR);
+  }
 }
 
 /**
@@ -84,5 +91,6 @@ function maskKey(key) {
 module.exports = {
   encrypt,
   decrypt,
-  maskKey
+  maskKey,
+  KEY_DECRYPTION_ERROR
 };

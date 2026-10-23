@@ -35,6 +35,24 @@ db.exec(`
     UNIQUE(user_id, role, is_fallback)
   );
 
+  CREATE TABLE IF NOT EXISTS specialist_skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    name TEXT NOT NULL,
+    instructions TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, role, name)
+  );
+
+  CREATE TABLE IF NOT EXISTS automatic_agents (
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, role)
+  );
+
   -- Tabla de configuración de presupuestos
   CREATE TABLE IF NOT EXISTS budget_settings (
     user_id TEXT PRIMARY KEY,

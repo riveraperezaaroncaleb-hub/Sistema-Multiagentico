@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 // Mapeo oficial de colores y nombres de agentes según design.md
 const AGENT_CONFIG = {
+  general: { name: 'Asistente', color: 'var(--outline)', icon: 'smart_toy' },
   directora: { name: 'Directora', color: 'var(--agent-directora)', icon: 'school' },
   programadora: { name: 'Programadora', color: 'var(--agent-programadora)', icon: 'terminal' },
   redactora: { name: 'Redactora', color: 'var(--agent-redactora)', icon: 'edit_note' },
@@ -9,7 +10,11 @@ const AGENT_CONFIG = {
   analista: { name: 'Analista de datos', color: 'var(--agent-analista)', icon: 'analytics' },
   creativa: { name: 'Creativa visual', color: 'var(--agent-creativa)', icon: 'palette' },
   revisora: { name: 'Revisora', color: 'var(--agent-revisora)', icon: 'fact_check' },
-  acciones: { name: 'Asistente n8n', color: 'var(--agent-acciones)', icon: 'smart_toy' }
+  acciones: { name: 'Asistente n8n', color: 'var(--agent-acciones)', icon: 'smart_toy' },
+  tutora: { name: 'Tutora', color: 'var(--agent-directora)', icon: 'school' },
+  traductora: { name: 'Traductora', color: 'var(--agent-redactora)', icon: 'translate' },
+  seguridad: { name: 'Especialista en seguridad', color: 'var(--agent-revisora)', icon: 'security' },
+  critico: { name: 'Crítico', color: 'var(--agent-revisora)', icon: 'fact_check' }
 };
 
 export default function ChatMessage({ message, onOpenReceipt }) {
@@ -123,13 +128,10 @@ export default function ChatMessage({ message, onOpenReceipt }) {
   }
 
   // 2. Mensaje de IA
-  const agentKey = (message.specialist || '').toLowerCase().includes('program') 
-    ? 'programadora' 
-    : (message.specialist || '').toLowerCase().includes('redact')
-    ? 'redactora'
-    : (message.specialist || '').toLowerCase().includes('direct')
-    ? 'directora'
-    : 'directora';
+  const specialistName = (message.specialist || '').toLowerCase();
+  const agentKey = Object.entries(AGENT_CONFIG).find(([, config]) =>
+    specialistName.includes(config.name.toLowerCase())
+  )?.[0] || 'directora';
 
   const agent = AGENT_CONFIG[agentKey] || AGENT_CONFIG.directora;
   const timeFormatted = new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -186,7 +188,12 @@ export default function ChatMessage({ message, onOpenReceipt }) {
         <details className="ai-reasoning">
           <summary>Razonamiento de la especialista</summary>
           <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--outline)' }}>
-            Orquestación completada. Solicitud analizada en Paso 1 (costos OK) y procesada por {agent.name}.
+            Solicitud procesada por {agent.name}
+            {message.criticReview?.reviewed
+              ? ` y revisada por Crítico en ${message.criticReview.roundsCount} ronda(s).`
+              : message.criticReview?.error
+                ? '. La revisión del Crítico no se completó.'
+                : '.'}
           </div>
         </details>
 
@@ -215,6 +222,12 @@ export default function ChatMessage({ message, onOpenReceipt }) {
               <span className="badge badge-warning" title="El crítico señaló observaciones tras 2 vueltas (Decide el humano)">
                 <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>rate_review</span>
                 Crítico: Observaciones pendientes
+              </span>
+            )}
+            {message.criticReview?.error && (
+              <span className="badge badge-warning" title={message.criticReview.error}>
+                <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>warning</span>
+                Crítico no pudo revisar
               </span>
             )}
 

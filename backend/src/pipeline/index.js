@@ -4,6 +4,7 @@ const { checkCostsAndBudget, calculateCost } = require('./1_costs');
 const { executeWorker } = require('./2_worker');
 const { scanContent } = require('./3_security');
 const { generateAndStoreReceipt } = require('./4_receipt');
+const { runAutomaticInterventions } = require('../services/automaticInterventions.service');
 
 /**
  * PUERTA DE ENTRADA Y SALIDA (Obligatoria, nada se la salta)
@@ -95,11 +96,17 @@ async function processPipeline({
     prompt: cleanPrompt,
     initialContent: workerResult.content,
     specialistName,
+    workerRole: role,
     provider: workerResult.providerUsed,
-    model: workerResult.modelUsed
+    model: workerResult.modelUsed,
+    apiKey: workerResult.apiKeyUsed
   });
 
   const contentToDeliver = criticReview.finalContent || workerResult.content;
+  const totalCostUsd = Number((costUsd + (criticReview.costUsd || 0)).toFixed(6));
+  const totalPromptTokens = workerResult.promptTokens + (criticReview.promptTokens || 0);
+  const totalCompletionTokens = workerResult.completionTokens + (criticReview.completionTokens || 0);
+  const totalTokens = workerResult.totalTokens + (criticReview.totalTokens || 0);
 
   // -------------------------------------------------------------
   // PASO 3: SEGURIDAD (VibeScan)
@@ -115,10 +122,10 @@ async function processPipeline({
     model: workerResult.modelUsed,
     prompt: cleanPrompt,
     completion: securityResult.content,
-    promptTokens: workerResult.promptTokens,
-    completionTokens: workerResult.completionTokens,
-    totalTokens: workerResult.totalTokens,
-    costUsd
+    promptTokens: totalPromptTokens,
+    completionTokens: totalCompletionTokens,
+    totalTokens,
+    costUsd: totalCostUsd
   });
 
   // Guardar respuesta del asistente en chat_messages
@@ -142,6 +149,13 @@ async function processPipeline({
 
   // Obtener estado actualizado del presupuesto tras la llamada
   const updatedBudget = checkCostsAndBudget(userId, sessionId, 'dummy').budget;
+  const automaticInterventions = await runAutomaticInterventions({
+    userId,
+    sessionId,
+    selectedRole: role,
+    selectedSpecialistName: specialistName
+  });
+  const budgetAfterInterventions = checkCostsAndBudget(userId, sessionId, 'dummy').budget;
 
   return {
     success: true,
@@ -151,6 +165,13 @@ async function processPipeline({
     content: securityResult.content,
     isFallbackUsed: workerResult.isFallbackUsed,
     fallbackAlert: workerResult.fallbackAlert,
+    automaticResponses: automaticInterventions.responses,
+    automaticInterventionErrors: automaticInterventions.errors,
+    automaticStatus: {
+      enabledCount: automaticInterventions.enabledCount,
+      evaluatedCount: automaticInterventions.evaluatedRoles.length,
+      responseCount: automaticInterventions.responses.length
+    },
     budgetAlert: costCheck.alert,
     routing: costCheck.routing,
     criticReview: {
@@ -158,7 +179,8 @@ async function processPipeline({
       verdict: criticReview.verdict,
       roundsCount: criticReview.roundsCount,
       criticFeedback: criticReview.criticFeedback,
-      requiresHumanDecision: criticReview.requiresHumanDecision
+      requiresHumanDecision: criticReview.requiresHumanDecision,
+      error: criticReview.error
     },
     security: {
       hasCode: securityResult.hasCode,
@@ -175,7 +197,7 @@ async function processPipeline({
       totalTokens: receipt.totalTokens,
       costUsd: receipt.costUsd
     },
-    budget: updatedBudget
+    budget: budgetAfterInterventions || updatedBudget
   };
 }
 

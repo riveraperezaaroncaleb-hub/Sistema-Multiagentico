@@ -9,18 +9,31 @@ import KeysModal from './components/Modals/KeysModal';
 import BudgetModal from './components/Modals/BudgetModal';
 import ReceiptModal from './components/Modals/ReceiptModal';
 import ScreenShareModal from './components/Modals/ScreenShareModal';
+import SpecialistSkillsModal from './components/Modals/SpecialistSkillsModal';
+import AutomaticAgentsModal from './components/Modals/AutomaticAgentsModal';
+import { readApiResponse } from './utils/api';
 
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [budget, setBudget] = useState(null);
   const [keys, setKeys] = useState([]);
+  const [skills, setSkills] = useState([]);
+  const [automaticAgentRoles, setAutomaticAgentRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [errorAlert, setErrorAlert] = useState(null);
+  const [automaticStatus, setAutomaticStatus] = useState(null);
 
   // Estado del layout y modales
   const [activeTab, setActiveTab] = useState('chat');
+  const [selectedSpecialist, setSelectedSpecialist] = useState({
+    id: 'directora',
+    name: 'Directora'
+  });
   const [isInspectionOpen, setIsInspectionOpen] = useState(true);
   const [isKeysOpen, setIsKeysOpen] = useState(false);
+  const [isSkillsOpen, setIsSkillsOpen] = useState(false);
+  const [isAutomaticAgentsOpen, setIsAutomaticAgentsOpen] = useState(false);
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [isScreenShareOpen, setIsScreenShareOpen] = useState(false);
   const [isSharingScreen, setIsSharingScreen] = useState(false);
@@ -52,6 +65,18 @@ export default function App() {
       const keysData = await keysRes.json();
       if (keysData.success) setKeys(keysData.keys);
 
+      try {
+        const skillsRes = await fetch('/api/skills');
+        const skillsData = await readApiResponse(skillsRes, '/api/skills');
+        if (skillsData.success) setSkills(skillsData.skills);
+      } catch (error) {
+        console.error('No se pudieron cargar las skills:', error);
+      }
+
+      const automaticAgentsRes = await fetch('/api/agents/automatic');
+      const automaticAgentsData = await readApiResponse(automaticAgentsRes, '/api/agents/automatic');
+      if (automaticAgentsData.success) setAutomaticAgentRoles(automaticAgentsData.enabledRoles);
+
       const chatRes = await fetch(`/api/chat/history?sessionId=${sessionId}`);
       const chatData = await chatRes.json();
       if (chatData.success && chatData.messages) {
@@ -74,15 +99,49 @@ export default function App() {
     loadInitialData();
   }, []);
 
-  // Envío de mensaje a través de la tubería de 4 pasos
-  const handleSendMessage = async (promptText) => {
+  const handleClearHistory = async () => {
+    const confirmed = window.confirm(
+      '¿Borrar todo el historial del chat de esta sesión?\n\n' +
+      'Se quitarán los mensajes de la conversación. Se conservarán las API Keys, skills, presupuestos, configuración de agentes, recibos y registros de uso.'
+    );
+    if (!confirmed) return;
+
+    setIsClearingHistory(true);
     setErrorAlert(null);
+    try {
+      const response = await fetch('/api/chat/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      });
+      const data = await readApiResponse(response, '/api/chat/clear');
+      if (!data.success) {
+        throw new Error(data.error || 'El servidor no confirmó el borrado del historial.');
+      }
+      setMessages([]);
+      setLatestReceipt(null);
+      setLatestSecurity(null);
+      setAutomaticStatus(null);
+      setActiveReceiptId(null);
+    } catch (error) {
+      setErrorAlert(`No se pudo borrar el historial: ${error.message}`);
+    } finally {
+      setIsClearingHistory(false);
+    }
+  };
+
+  // Envío de mensaje a través de la tubería de 4 pasos
+  const handleSendMessage = async (promptText, document = null) => {
+    setErrorAlert(null);
+    setAutomaticStatus(null);
     setIsLoading(true);
 
     const tempUserMsg = {
       id: `temp_${Date.now()}`,
       sender: 'user',
-      content: promptText,
+      content: document
+        ? `${promptText}\n\n📎 Documento adjunto: ${document.fileName}`
+        : promptText,
       createdAt: new Date().toISOString()
     };
     setMessages(prev => [...prev, tempUserMsg]);
@@ -94,8 +153,9 @@ export default function App() {
         body: JSON.stringify({
           sessionId,
           prompt: promptText,
-          role: 'general',
-          specialistName: 'Directora'
+          document,
+          role: selectedSpecialist.id,
+          specialistName: selectedSpecialist.name
         })
       });
 
@@ -103,11 +163,11 @@ export default function App() {
 
       if (response.status === 429 || data.blocked) {
         setErrorAlert(data.reason || 'Llamada bloqueada por la puerta de seguridad del pipeline.');
-        setIsLoading(false);
-        return;
+        return null;
       }
 
       if (data.success) {
+        setAutomaticStatus(data.automaticStatus || null);
         const assistantMsg = {
           id: data.messageId,
           sender: 'assistant',
@@ -127,6 +187,18 @@ export default function App() {
         };
 
         setMessages(prev => [...prev, assistantMsg]);
+        const automaticMessages = (data.automaticResponses || []).map(message => ({
+          ...message,
+          sender: 'assistant',
+          specialistBadge: message.role.toUpperCase(),
+          createdAt: message.createdAt || new Date().toISOString()
+        }));
+        if (automaticMessages.length) {
+          setMessages(prev => [...prev, ...automaticMessages]);
+        }
+
+        const interventionWarnings = (data.automaticInterventionErrors || [])
+          .map(item => `${item.specialistName}: ${item.error}`);
 
         if (data.receipt) {
           setLatestReceipt({
@@ -153,18 +225,38 @@ export default function App() {
           setBudget(data.budget);
         }
 
-        if (data.budgetAlert) {
-          setErrorAlert(data.budgetAlert);
+        const notices = [data.budgetAlert, ...interventionWarnings].filter(Boolean);
+        if (notices.length) {
+          setErrorAlert(notices.join(' | '));
         }
+        return data.content;
       } else {
         setErrorAlert(data.error || 'Ocurrió un error al procesar la respuesta.');
+        return null;
       }
     } catch (err) {
       setErrorAlert('Error de conexión con el backend: ' + err.message);
+      return null;
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleSpeakResponse = (text) => new Promise((resolve) => {
+    if (!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) {
+      resolve(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new window.SpeechSynthesisUtterance(
+      text.replace(/```[\s\S]*?```/g, ' ').replace(/[*_#`>]/g, ' ').slice(0, 5000)
+    );
+    utterance.lang = 'es-CR';
+    utterance.onend = () => resolve(true);
+    utterance.onerror = () => resolve(false);
+    window.speechSynthesis.speak(utterance);
+  });
 
   // Guardar llave BYOK
   const handleSaveKey = async (keyPayload) => {
@@ -179,11 +271,77 @@ export default function App() {
         const keysRes = await fetch('/api/keys');
         const keysData = await keysRes.json();
         if (keysData.success) setKeys(keysData.keys);
-        return { success: true };
+        return { success: true, provider: data.providerName || data.key?.provider };
       }
       return { success: false, error: data.error };
     } catch (err) {
       return { success: false, error: err.message };
+    }
+  };
+
+  const handleTestKey = async (keyId) => {
+    try {
+      const res = await fetch(`/api/keys/${keyId}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      return data.success
+        ? { success: true, provider: data.provider, model: data.model }
+        : { success: false, error: data.error || 'No se pudo validar la conexión.' };
+    } catch (err) {
+      return { success: false, error: `Error de conexión con el backend: ${err.message}` };
+    }
+  };
+
+  const handleSaveSkill = async (skillPayload) => {
+    try {
+      const response = await fetch('/api/skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(skillPayload)
+      });
+      const data = await readApiResponse(response, '/api/skills');
+      if (!data.success || !data.skill) {
+        return { success: false, error: 'El backend no confirmó el guardado de la skill.' };
+      }
+      setSkills(previous => [...previous, data.skill]);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: `Error de conexión con el backend: ${error.message}` };
+    }
+  };
+
+  const handleDeleteSkill = async (skillId) => {
+    try {
+      const response = await fetch(`/api/skills/${skillId}`, { method: 'DELETE' });
+      const data = await readApiResponse(response, `/api/skills/${skillId}`);
+      if (!data.success) {
+        return { success: false, error: 'El backend no confirmó la eliminación de la skill.' };
+      }
+      setSkills(previous => previous.filter(skill => skill.id !== skillId));
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: `Error de conexión con el backend: ${error.message}` };
+    }
+  };
+
+  const handleSaveAutomaticAgents = async (enabledRoles) => {
+    try {
+      const response = await fetch('/api/agents/automatic', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabledRoles })
+      });
+      const data = await readApiResponse(response, '/api/agents/automatic');
+      if (!data.success) {
+        return { success: false, error: 'El backend no confirmó la configuración de agentes.' };
+      }
+      setAutomaticAgentRoles(data.enabledRoles);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: `Error al guardar los agentes: ${error.message}` };
     }
   };
 
@@ -226,7 +384,16 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         onOpenKeys={() => setIsKeysOpen(true)}
+        onOpenSkills={() => setIsSkillsOpen(true)}
+        onOpenAutomaticAgents={() => setIsAutomaticAgentsOpen(true)}
         onOpenBudget={() => setIsBudgetOpen(true)}
+        onClearHistory={handleClearHistory}
+        isClearingHistory={isClearingHistory}
+        selectedSpecialist={selectedSpecialist}
+        onSelectSpecialist={(specialist) => {
+          setSelectedSpecialist(specialist);
+          setActiveTab('chat');
+        }}
       />
 
       {/* 2. Zona Central: Barra Superior y Chat Orquestado (máximo 880px) */}
@@ -262,6 +429,7 @@ export default function App() {
         {/* Barra Superior Fija */}
         <Header
           budget={budget}
+          specialistName={selectedSpecialist.name}
           onOpenKeys={() => setIsKeysOpen(true)}
           onOpenBudget={() => setIsBudgetOpen(true)}
           onOpenScreenShare={() => setIsScreenShareOpen(true)}
@@ -365,8 +533,12 @@ export default function App() {
         {/* Command Dock fijo en la parte inferior */}
         <ChatInput
           onSendMessage={handleSendMessage}
+          onVoiceSendMessage={handleSendMessage}
+          onSpeakResponse={handleSpeakResponse}
           isLoading={isLoading}
           errorAlert={errorAlert}
+          automaticStatus={automaticStatus}
+          specialistName={selectedSpecialist.name}
         />
       </div>
 
@@ -385,7 +557,25 @@ export default function App() {
         onClose={() => setIsKeysOpen(false)}
         keys={keys}
         onSaveKey={handleSaveKey}
+        onTestKey={handleTestKey}
         onDeleteKey={handleDeleteKey}
+      />
+
+      <SpecialistSkillsModal
+        key={isSkillsOpen ? `skills:${selectedSpecialist.id}` : 'skills:closed'}
+        isOpen={isSkillsOpen}
+        onClose={() => setIsSkillsOpen(false)}
+        selectedSpecialist={selectedSpecialist}
+        skills={skills}
+        onSaveSkill={handleSaveSkill}
+        onDeleteSkill={handleDeleteSkill}
+      />
+      <AutomaticAgentsModal
+        key={isAutomaticAgentsOpen ? `automatic-agents:${automaticAgentRoles.join(',')}` : 'automatic-agents:closed'}
+        isOpen={isAutomaticAgentsOpen}
+        enabledRoles={automaticAgentRoles}
+        onSave={handleSaveAutomaticAgents}
+        onClose={() => setIsAutomaticAgentsOpen(false)}
       />
 
       <BudgetModal

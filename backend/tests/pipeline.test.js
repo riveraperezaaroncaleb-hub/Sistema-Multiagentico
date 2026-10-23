@@ -4,11 +4,15 @@ const { getReceiptById } = require('../src/pipeline/4_receipt');
 const { scanContent } = require('../src/pipeline/3_security');
 const { checkCostsAndBudget } = require('../src/pipeline/1_costs');
 const db = require('../src/config/database');
+const { saveTestProviderKey, mockOpenAIResponses } = require('./helpers/provider-fixture');
+const { runAutomaticInterventions } = require('../src/services/automaticInterventions.service');
 
 async function runTests() {
   console.log('🧪 Iniciando pruebas del Pipeline de 4 Pasos...');
   const testUserId = `test_user_${Date.now()}`;
   const testSessionId = `test_sess_${Date.now()}`;
+  saveTestProviderKey(testUserId);
+  const restoreFetch = mockOpenAIResponses();
 
   // Prueba 1: Ejecución normal del pipeline completo
   console.log('1. Probando ejecución completa del pipeline (Pasos 1 -> 2 -> 3 -> 4)...');
@@ -74,7 +78,58 @@ async function runTests() {
   assert.strictEqual(budgetBlockedRes.status, 'DAILY_LIMIT_EXCEEDED');
   console.log('✓ Prueba 5 superada: El tope de presupuesto detuvo la llamada');
 
+  console.log('6. Probando evaluación automática, límite de respuestas y persistencia...');
+  const autoUserId = `auto_user_${Date.now()}`;
+  const autoSessionId = `auto_session_${Date.now()}`;
+  saveTestProviderKey(autoUserId);
+  db.prepare(`
+    INSERT INTO automatic_agents (user_id, role, position)
+    VALUES (?, 'tutora', 0), (?, 'revisora', 1), (?, 'traductora', 2), (?, 'seguridad', 3)
+  `).run(autoUserId, autoUserId, autoUserId, autoUserId);
+  db.prepare(`
+    INSERT INTO chat_messages (id, user_id, session_id, sender, content)
+    VALUES (?, ?, ?, 'user', 'Explícame este punto'),
+      (?, ?, ?, 'assistant', 'La explicación inicial.')
+  `).run(`${autoUserId}_user_message`, autoUserId, autoSessionId, `${autoUserId}_main_answer`, autoUserId, autoSessionId);
+  const evaluatedAgents = [];
+  const automaticResult = await runAutomaticInterventions({
+    userId: autoUserId,
+    sessionId: autoSessionId,
+    selectedRole: 'directora',
+    selectedSpecialistName: 'Directora',
+    llmCaller: async ({ specialistName }) => {
+      evaluatedAgents.push(specialistName);
+      return {
+        content: specialistName === 'Tutora'
+          ? 'NO_INTERVENTION'
+          : 'INTERVENE\nAporto una observación concreta desde mi especialidad.',
+        modelUsed: 'gpt-4o-mini',
+        providerUsed: 'openai',
+        promptTokens: 10,
+        completionTokens: 8,
+        totalTokens: 18,
+        isFallbackUsed: false
+      };
+    }
+  });
+  assert.deepStrictEqual(evaluatedAgents, ['Tutora', 'Revisora', 'Traductora']);
+  assert.strictEqual(automaticResult.responses.length, 2, 'No debe superar dos respuestas por turno');
+  assert(
+    !evaluatedAgents.includes('Programadora'),
+    'No debe evaluar especialistas que no fueron activados'
+  );
+  assert.strictEqual(
+    db.prepare(`
+      SELECT COUNT(*) AS count FROM chat_messages
+      WHERE user_id = ? AND session_id = ? AND sender = 'assistant'
+    `).get(autoUserId, autoSessionId).count,
+    3,
+    'Las dos intervenciones automáticas deben persistirse con la respuesta principal'
+  );
+  console.log('✓ Prueba 6 superada: solo evalúan agentes activos y se guardan como máximo dos intervenciones');
+
   console.log('🎉 ¡TODAS LAS PRUEBAS DEL PIPELINE PASARON EXITOSAMENTE!');
+  restoreFetch();
 }
 
 runTests().catch(err => {

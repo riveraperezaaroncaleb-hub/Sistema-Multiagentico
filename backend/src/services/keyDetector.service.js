@@ -1,69 +1,94 @@
 /**
- * Detector automático de proveedor y modelo según el formato de la API Key.
- * El usuario solo pega su clave y el sistema infiere automáticamente el proveedor.
+ * Detecta proveedores solo cuando el prefijo es inequívoco.
+ * Algunas claves, como sk- de OpenAI y DeepSeek, no se pueden distinguir por formato.
  */
+const providers = require('../../../shared/provider-catalog.json');
+const providersById = new Map(providers.map(provider => [provider.id, provider]));
 
-function detectProviderFromKey(rawKey) {
+function getProviderConfig(providerId) {
+  return providersById.get(providerId) || null;
+}
+
+function detectProviderFromKey(rawKey, selectedProvider) {
+  if (selectedProvider && selectedProvider !== 'auto') {
+    const provider = getProviderConfig(selectedProvider);
+    if (provider) {
+      return {
+        provider: provider.id,
+        name: provider.name,
+        defaultModel: provider.model,
+        confidence: 'selected'
+      };
+    }
+
+    return {
+      provider: 'unknown',
+      name: 'Proveedor no compatible',
+      defaultModel: '',
+      confidence: 'none'
+    };
+  }
+
   if (!rawKey || typeof rawKey !== 'string') {
     return {
       provider: 'unknown',
       name: 'No identificada',
-      defaultModel: 'mock-model',
+      defaultModel: '',
       confidence: 'none'
     };
   }
 
   const key = rawKey.trim();
+  const fromPrefix = (providerId) => {
+    const provider = getProviderConfig(providerId);
+    return {
+      provider: provider.id,
+      name: provider.name,
+      defaultModel: provider.model,
+      confidence: 'high'
+    };
+  };
 
-  // Anthropic Claude: Claves empiezan con "sk-ant-"
   if (key.startsWith('sk-ant-')) {
-    return {
-      provider: 'anthropic',
-      name: 'Anthropic Claude',
-      defaultModel: 'claude-3-5-sonnet-20241022',
-      confidence: 'high'
-    };
+    return fromPrefix('anthropic');
   }
 
-  // Google Gemini: Claves de Google Cloud / AI Studio suelen empezar con "AIzaSy"
   if (key.startsWith('AIzaSy') || key.startsWith('AIza')) {
-    return {
-      provider: 'gemini',
-      name: 'Google Gemini',
-      defaultModel: 'gemini-1.5-flash',
-      confidence: 'high'
-    };
+    return fromPrefix('gemini');
   }
 
-  // Groq: Claves empiezan con "gsk_"
   if (key.startsWith('gsk_')) {
+    return fromPrefix('groq');
+  }
+
+  if (key.startsWith('sk-or-v1-')) {
+    return fromPrefix('openrouter');
+  }
+
+  if (key.startsWith('sk-proj-')) {
+    return fromPrefix('openai');
+  }
+
+  if (key.startsWith('sk-')) {
     return {
-      provider: 'groq',
-      name: 'Groq',
-      defaultModel: 'llama-3.3-70b-versatile',
-      confidence: 'high'
+      provider: 'unknown',
+      name: 'Clave ambigua',
+      defaultModel: '',
+      confidence: 'ambiguous',
+      candidates: ['openai', 'deepseek', 'mistral', 'xai']
     };
   }
 
-  // OpenAI: Claves de proyectos nuevos "sk-proj-" o claves clásicas "sk-" con longitud adecuada
-  if (key.startsWith('sk-proj-') || (key.startsWith('sk-') && key.length >= 35 && !key.includes('ant'))) {
-    return {
-      provider: 'openai',
-      name: 'OpenAI',
-      defaultModel: 'gpt-4o-mini',
-      confidence: 'high'
-    };
-  }
-
-  // Si no coincide con prefijos conocidos
   return {
     provider: 'unknown',
     name: 'Proveedor no reconocido',
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: '',
     confidence: 'low'
   };
 }
 
 module.exports = {
-  detectProviderFromKey
+  detectProviderFromKey,
+  getProviderConfig,
+  providers
 };

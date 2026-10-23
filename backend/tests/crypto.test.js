@@ -17,6 +17,16 @@ const decryptedText = decrypt(encryptedResult);
 assert.strictEqual(decryptedText, testApiKey, 'El texto descifrado debe coincidir exactamente con el original');
 console.log('✓ Prueba 1 superada: Cifrado y descifrado coinciden');
 
+const configuredSecret = process.env.APP_ENCRYPTION_SECRET;
+delete process.env.APP_ENCRYPTION_SECRET;
+assert.throws(
+  () => encrypt(testApiKey),
+  /APP_ENCRYPTION_SECRET no está configurada/,
+  'No debe cifrar claves con un secreto de desarrollo implícito'
+);
+if (configuredSecret !== undefined) process.env.APP_ENCRYPTION_SECRET = configuredSecret;
+console.log('✓ Rechaza cifrar llaves si falta la clave maestra estable');
+
 // Prueba 2: Detección de alteración o manipulación (Auth Tag falla si alguien cambia 1 byte)
 let tampered = { ...encryptedResult };
 // Cambiamos el último caracter del encryptedData
@@ -24,7 +34,7 @@ tampered.encryptedData = tampered.encryptedData.slice(0, -1) + (tampered.encrypt
 
 assert.throws(() => {
   decrypt(tampered);
-}, /Unsupported state or unable to authenticate data/, 'Debe rechazar datos manipulados con error de autenticación');
+}, /APP_ENCRYPTION_SECRET/, 'Debe rechazar datos manipulados con una guía para recuperar la clave');
 console.log('✓ Prueba 2 superada: Detecta manipulación de datos (Integridad garantizada)');
 
 // Prueba 3: Enmascaramiento para UI

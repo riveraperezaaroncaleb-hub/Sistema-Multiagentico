@@ -1,17 +1,7 @@
 import React from 'react';
+import { SPECIALISTS } from '../constants/specialists';
 
-const AGENTS = [
-  { id: 'directora', name: 'Directora', role: 'Orquestadora', color: 'var(--agent-directora)', icon: 'school' },
-  { id: 'programadora', name: 'Programadora', role: 'Código y Debug', color: 'var(--agent-programadora)', icon: 'terminal' },
-  { id: 'redactora', name: 'Redactora', role: 'Contenido y Tono', color: 'var(--agent-redactora)', icon: 'edit_note' },
-  { id: 'investigadora', name: 'Investigadora', role: 'Búsqueda y Fuentes', color: 'var(--agent-investigadora)', icon: 'travel_explore' },
-  { id: 'analista', name: 'Analista de datos', role: 'Métricas y SQL', color: 'var(--agent-analista)', icon: 'analytics' },
-  { id: 'creativa', name: 'Creativa visual', role: 'Prompts y Arte', color: 'var(--agent-creativa)', icon: 'palette' },
-  { id: 'revisora', name: 'Revisora', role: 'Control de Calidad', color: 'var(--agent-revisora)', icon: 'fact_check' },
-  { id: 'acciones', name: 'Asistente n8n', role: 'Automatizaciones', color: 'var(--agent-acciones)', icon: 'smart_toy' }
-];
-
-export default function Sidebar({ activeTab, onSelectTab, onOpenKeys, onOpenBudget }) {
+export default function Sidebar({ activeTab, onSelectTab, onOpenKeys, onOpenBudget, onOpenSkills, onOpenAutomaticAgents, onClearHistory, isClearingHistory, selectedSpecialist, onSelectSpecialist }) {
   return (
     <aside style={{
       width: '260px',
@@ -74,12 +64,41 @@ export default function Sidebar({ activeTab, onSelectTab, onOpenKeys, onOpenBudg
         </button>
 
         <button
+          onClick={onOpenSkills}
+          className="btn btn-ghost"
+          style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '4px', height: '36px' }}
+        >
+          <span className="material-symbols-outlined">extension</span>
+          <span>Skills por IA</span>
+        </button>
+
+        <button
+          onClick={onOpenAutomaticAgents}
+          className="btn btn-ghost"
+          style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '4px', height: '36px' }}
+        >
+          <span className="material-symbols-outlined">forum</span>
+          <span>Intervenciones automáticas</span>
+        </button>
+
+        <button
           onClick={onOpenBudget}
           className="btn btn-ghost"
           style={{ width: '100%', justifyContent: 'flex-start', height: '36px' }}
         >
           <span className="material-symbols-outlined">payments</span>
           <span>Control de Gasto</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onClearHistory}
+          disabled={isClearingHistory}
+          className="btn btn-ghost"
+          style={{ width: '100%', justifyContent: 'flex-start', height: '36px', color: 'var(--error)' }}
+        >
+          <span className="material-symbols-outlined">delete_sweep</span>
+          <span>{isClearingHistory ? 'Borrando historial...' : 'Borrar historial del chat'}</span>
         </button>
       </nav>
 
@@ -94,17 +113,25 @@ export default function Sidebar({ activeTab, onSelectTab, onOpenKeys, onOpenBudg
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {AGENTS.map(agent => (
-            <div
+          {SPECIALISTS.filter(agent => agent.id !== 'general').map(agent => (
+            <button
               key={agent.id}
+              type="button"
+              onClick={() => onSelectSpecialist(agent)}
+              aria-pressed={selectedSpecialist?.id === agent.id}
               style={{
+                width: '100%',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
                 padding: '6px 8px',
                 borderRadius: 'var(--rounded-md)',
-                backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                borderLeft: `3px solid ${agent.color}`
+                backgroundColor: selectedSpecialist?.id === agent.id ? 'var(--surface)' : 'rgba(255, 255, 255, 0.02)',
+                border: 'none',
+                borderLeft: `3px solid ${agent.color}`,
+                color: 'inherit',
+                textAlign: 'left',
+                cursor: 'pointer'
               }}
             >
               <div style={{
@@ -128,7 +155,7 @@ export default function Sidebar({ activeTab, onSelectTab, onOpenKeys, onOpenBudg
                   {agent.role}
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

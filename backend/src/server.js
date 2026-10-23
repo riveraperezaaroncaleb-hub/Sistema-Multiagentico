@@ -4,9 +4,15 @@ require('dotenv').config();
 
 const apiRoutes = require('./routes/api.routes');
 const db = require('./config/database');
+const { migrateLegacyApiKeys } = require('./services/legacyKeyMigration.service');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+const migratedKeys = migrateLegacyApiKeys();
+if (migratedKeys > 0) {
+  console.log(`✓ Se actualizaron ${migratedKeys} API Keys cifradas con la clave maestra de desarrollo anterior.`);
+}
 
 // Middlewares
 app.use(cors());
@@ -23,6 +29,10 @@ app.get('/api/health', (req, res) => {
 
 // Rutas de API
 app.use('/api', apiRoutes);
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `No existe la ruta de API ${req.method} ${req.originalUrl}.` });
+});
 
 // Manejador de errores no controlados
 app.use((err, req, res, next) => {
@@ -49,4 +59,3 @@ process.on('SIGINT', () => {
 });
 
 module.exports = { app, server, PORT };
-

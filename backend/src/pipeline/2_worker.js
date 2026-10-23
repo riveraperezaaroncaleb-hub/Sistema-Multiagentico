@@ -1,19 +1,28 @@
 const db = require('../config/database');
-const { decrypt } = require('../services/crypto.service');
+const { decrypt, KEY_DECRYPTION_ERROR } = require('../services/crypto.service');
 const { callLLM } = require('../services/llm.service');
+const { getSpecialist } = require('../services/specialists.service');
+const { getSkillsPrompt } = require('../services/skills.service');
 
 const MAX_HISTORY_MESSAGES = 6; // Límite de contexto para no inflar costos
 
 /**
  * PASO 2 OBLIGATORIO: La IA Trabaja
- * Ejecuta la especialista elegida, con límite de contexto y sistema de fallback automático.
+ * Ejecuta la especialista elegida con límite de contexto y proveedores reales.
  */
-async function executeWorker({ userId, sessionId, role = 'general', specialistName = 'Especialista MVP', prompt }) {
+async function executeWorker({
+  userId,
+  sessionId,
+  role = 'general',
+  specialistName = 'Especialista MVP',
+  prompt,
+  llmCaller = callLLM
+}) {
   // 1. Obtener historial recortado para evitar gasto excesivo de tokens
   const historyRows = db.prepare(`
     SELECT sender, content FROM chat_messages
     WHERE user_id = ? AND session_id = ?
-    ORDER BY created_at DESC LIMIT ?
+    ORDER BY created_at DESC, rowid DESC LIMIT ?
   `).all(userId, sessionId, MAX_HISTORY_MESSAGES).reverse();
 
   const formattedMessages = historyRows.map(row => ({
@@ -21,63 +30,74 @@ async function executeWorker({ userId, sessionId, role = 'general', specialistNa
     content: row.content
   }));
 
-  // Agregar el mensaje actual del usuario
-  formattedMessages.push({ role: 'user', content: prompt });
+  const specialist = getSpecialist(role);
+  const skillInstructions = getSkillsPrompt(userId, role);
+  formattedMessages.unshift({ role: 'system', content: `${specialist.instructions}${skillInstructions}` });
 
-  // 2. Buscar llaves configuradas (Principal y Reserva)
-  const primaryKeyRecord = db.prepare(`
-    SELECT * FROM api_keys 
-    WHERE user_id = ? AND role = ? AND is_fallback = 0
-  `).get(userId, role);
-
-  const fallbackKeyRecord = db.prepare(`
-    SELECT * FROM api_keys 
-    WHERE user_id = ? AND role = ? AND is_fallback = 1
-  `).get(userId, role);
-
-  let primaryDecrypted = null;
-  if (primaryKeyRecord) {
-    try {
-      primaryDecrypted = decrypt({
-        encryptedData: primaryKeyRecord.encrypted_key,
-        iv: primaryKeyRecord.iv,
-        authTag: primaryKeyRecord.auth_tag
-      });
-    } catch (err) {
-      console.error('Error al descifrar la llave primaria:', err.message);
-    }
+  const currentPromptInHistory = historyRows.at(-1)?.sender === 'user'
+    && historyRows.at(-1).content === prompt;
+  if (!currentPromptInHistory) {
+    formattedMessages.push({ role: 'user', content: prompt });
   }
 
-  let result = null;
+  // 2. Buscar llaves configuradas (Principal y Reserva)
+  const getKeyRecord = (keyRole, isFallback) => db.prepare(`
+    SELECT * FROM api_keys 
+    WHERE user_id = ? AND role = ? AND is_fallback = ?
+  `).get(userId, keyRole, isFallback ? 1 : 0);
+
+  const roleOrder = role === 'general' ? ['general'] : [role, 'general'];
+  const findKeyRecord = (isFallback) => roleOrder
+    .map(keyRole => getKeyRecord(keyRole, isFallback))
+    .find(Boolean);
+
+  const primaryKeyRecord = findKeyRecord(false);
+  const fallbackKeyRecord = findKeyRecord(true);
+  if (!primaryKeyRecord) {
+    throw new Error(`No hay una API Key real configurada para ${specialistName} ni para General. Abre “Configurar Llaves” y conecta un proveedor.`);
+  }
+
+  const primaryKeyRole = primaryKeyRecord.role;
+  const decryptKey = (record, keyRole) => {
+    try {
+      return decrypt({
+        encryptedData: record.encrypted_key,
+        iv: record.iv,
+        authTag: record.auth_tag
+      });
+    } catch (error) {
+      if (error.message === KEY_DECRYPTION_ERROR) {
+        throw new Error(`No se puede usar la API Key configurada para “${keyRole}”. ${KEY_DECRYPTION_ERROR}`);
+      }
+      throw error;
+    }
+  };
+  const primaryDecrypted = decryptKey(primaryKeyRecord, primaryKeyRole);
+
+  let result;
   let isFallbackUsed = false;
   let fallbackAlert = null;
+  let apiKeyUsed = primaryDecrypted;
 
-  // 3. Intentar llamada con la IA Principal
+  // 3. Intentar llamada con el proveedor principal
   try {
-    const provider = primaryKeyRecord ? primaryKeyRecord.provider : 'mock';
-    const model = primaryKeyRecord ? primaryKeyRecord.model : 'mock-model';
-
-    result = await callLLM({
-      provider,
-      model,
+    result = await llmCaller({
+      provider: primaryKeyRecord.provider,
+      model: primaryKeyRecord.model,
       apiKey: primaryDecrypted,
       messages: formattedMessages,
       maxTokens: 1200,
       specialistName
     });
   } catch (primaryError) {
-    console.warn(`⚠️ Error en la IA principal (${primaryError.message}). Evaluando IA de reserva...`);
+    console.warn(`Error en el proveedor principal (${primaryError.message}). Evaluando proveedor de reserva...`);
 
-    // 4. Intentar con IA de reserva si está configurada
+    // 4. Intentar con proveedor de reserva si está configurado
     if (fallbackKeyRecord) {
       try {
-        const fallbackDecrypted = decrypt({
-          encryptedData: fallbackKeyRecord.encrypted_key,
-          iv: fallbackKeyRecord.iv,
-          authTag: fallbackKeyRecord.auth_tag
-        });
+        const fallbackDecrypted = decryptKey(fallbackKeyRecord, `${fallbackKeyRecord.role} (reserva)`);
 
-        result = await callLLM({
+        result = await llmCaller({
           provider: fallbackKeyRecord.provider,
           model: fallbackKeyRecord.model,
           apiKey: fallbackDecrypted,
@@ -87,31 +107,22 @@ async function executeWorker({ userId, sessionId, role = 'general', specialistNa
         });
 
         isFallbackUsed = true;
+        apiKeyUsed = fallbackDecrypted;
         fallbackAlert = `⚠️ Aviso de contingencia: La IA principal falló (${primaryError.message.slice(0, 40)}...). Se utilizó la IA de reserva (${fallbackKeyRecord.provider} - ${fallbackKeyRecord.model}).`;
       } catch (fallbackError) {
-        console.error('Error en la IA de reserva:', fallbackError.message);
+        console.error('Error en el proveedor de reserva:', fallbackError.message);
+        throw new Error(`Falló el proveedor principal ${primaryKeyRecord.provider} (${primaryError.message}) y también el proveedor de reserva ${fallbackKeyRecord.provider} (${fallbackError.message}).`);
       }
-    }
-
-    // Si aún no tenemos resultado, recurrimos al simulador seguro
-    if (!result) {
-      result = await callLLM({
-        provider: 'mock',
-        model: 'mock-seguro',
-        apiKey: null,
-        messages: formattedMessages,
-        maxTokens: 800,
-        specialistName
-      });
-      isFallbackUsed = true;
-      fallbackAlert = `⚠️ Aviso: Tu proveedor de IA no respondió. Se activó el simulador de contingencia seguro para que no pierdas la sesión.`;
+    } else {
+      throw new Error(`No se pudo conectar con ${primaryKeyRecord.provider} (${primaryKeyRecord.model}): ${primaryError.message}`);
     }
   }
 
   return {
     ...result,
     isFallbackUsed,
-    fallbackAlert
+    fallbackAlert,
+    apiKeyUsed
   };
 }
 
