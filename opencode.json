@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "permission": {
+    "read": {
+      "*": "allow",
+      ".env*": "deny",
+      "**/.env*": "deny",
+      ".env.example": "allow",
+      "**/.env.example": "allow"
+    },
+    "bash": {
+      "*": "allow",
+      "rm": "ask",
+      "rm *": "ask",
+      "Remove-Item*": "ask",
+      "del *": "ask",
+      "git push": "ask",
+      "git push *": "ask",
+      "npm install": "ask",
+      "npm install *": "ask",
+      "npm i": "ask",
+      "npm i *": "ask",
+      "npm ci*": "ask",
+      "npm add *": "ask",
+      "npm update*": "ask",
+      "pnpm install*": "ask",
+      "pnpm add *": "ask",
+      "yarn install*": "ask",
+      "yarn add *": "ask"
+    }
+  }
+}

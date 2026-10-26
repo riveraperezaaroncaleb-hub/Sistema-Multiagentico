@@ -1,21 +1,19 @@
 {
-  "name": "sistema-multiagentico-ecosistema",
+  "name": "sistema-multiagentico",
   "version": "1.0.0",
-  "description": "Ecosistema Multi-IA coordinado con pipeline de costos, seguridad VibeScan y recibos criptográficos",
+  "description": "Pipeline multiagente Node independiente con verificadores, presupuesto y benchmark honesto",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev:backend": "node backend/src/server.js",
+    "test": "node --test \"test/*.test.js\"",
+    "test:legacy": "npm test --prefix backend",
+    "dev:backend": "npm start --prefix backend",
     "dev:frontend": "npm run --prefix frontend dev",
-    "test:backend": "npm test --prefix backend",
     "build:frontend": "npm run --prefix frontend build"
   },
-  "keywords": [
-    "multi-agent",
-    "ai-orchestration",
-    "byok",
-    "vibescan",
-    "token-limiter",
-    "ledgerproof"
-  ],
-  "author": "",
-  "license": "ISC"
+  "dependencies": {
+    "dotenv": "16.4.5"
+  }
 }

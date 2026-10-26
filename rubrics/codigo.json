@@ -1,0 +1,21 @@
+{
+  "version": "v1",
+  "tipo": "codigo",
+  "criteria": [
+    {
+      "id": "C1",
+      "descripcion": "La sintaxis JavaScript es válida",
+      "verificable_en_codigo": true
+    },
+    {
+      "id": "C2",
+      "descripcion": "Pasa los tests visibles provistos",
+      "verificable_en_codigo": true
+    },
+    {
+      "id": "C3",
+      "descripcion": "El código es legible y no tiene efectos secundarios",
+      "verificable_en_codigo": false
+    }
+  ]
+}

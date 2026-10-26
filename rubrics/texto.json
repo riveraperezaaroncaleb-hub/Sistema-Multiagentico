@@ -1,0 +1,21 @@
+{
+  "version": "v1",
+  "tipo": "texto",
+  "criteria": [
+    {
+      "id": "C1",
+      "descripcion": "La salida cumple el schema JSON solicitado",
+      "verificable_en_codigo": true
+    },
+    {
+      "id": "C2",
+      "descripcion": "El contenido responde correctamente a la tarea",
+      "verificable_en_codigo": false
+    },
+    {
+      "id": "C3",
+      "descripcion": "El texto es claro, completo y sin afirmaciones inventadas",
+      "verificable_en_codigo": false
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+[
+  {
+    "id": "facil-suma",
+    "dificultad": "facil",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { add } con module.exports. add(a, b) suma dos números.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { add } = require('./solution.js');\ntest('suma', () => assert.equal(add(2, 3), 5));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { add } = require('./solution.js');\ntest('negativos', () => assert.equal(add(-1, 1), 0));\ntest('decimales', () => assert.equal(add(0.5, 0.25), 0.75));"
+  },
+  {
+    "id": "facil-invertir",
+    "dificultad": "facil",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { reverseString } con module.exports. reverseString(s) invierte una cadena.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { reverseString } = require('./solution.js');\ntest('invierte', () => assert.equal(reverseString('abc'), 'cba'));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { reverseString } = require('./solution.js');\ntest('vacía', () => assert.equal(reverseString(''), ''));\ntest('frase', () => assert.equal(reverseString('hola mundo'), 'odnum aloh'));"
+  },
+  {
+    "id": "facil-json",
+    "dificultad": "facil",
+    "tipo": "texto",
+    "tarea": "Devuelve exactamente el JSON {\"nombre\":\"Ada\",\"edad\":36,\"lenguaje\":\"JavaScript\"}.",
+    "schema": {
+      "type": "object",
+      "required": ["nombre", "edad", "lenguaje"],
+      "properties": {
+        "nombre": { "type": "string" },
+        "edad": { "type": "integer" },
+        "lenguaje": { "type": "string" }
+      }
+    },
+    "esperado": { "nombre": "Ada", "edad": 36, "lenguaje": "JavaScript" }
+  },
+  {
+    "id": "factorial",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { factorial } con module.exports. factorial(n) devuelve n! y 1 para n <= 1.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { factorial } = require('./solution.js');\ntest('cinco', () => assert.equal(factorial(5), 120));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { factorial } = require('./solution.js');\ntest('cero', () => assert.equal(factorial(0), 1));\ntest('uno', () => assert.equal(factorial(1), 1));\ntest('siete', () => assert.equal(factorial(7), 5040));"
+  },
+  {
+    "id": "unicos",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { unique } con module.exports. unique(arr) elimina duplicados conservando el orden.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { unique } = require('./solution.js');\ntest('enteros', () => assert.deepEqual(unique([1, 2, 2, 3]), [1, 2, 3]));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { unique } = require('./solution.js');\ntest('repetidos', () => assert.deepEqual(unique([1, 1, 2, 1]), [1, 2]));\ntest('cadenas', () => assert.deepEqual(unique(['a', 'b', 'a']), ['a', 'b']));\ntest('vacío', () => assert.deepEqual(unique([]), []));"
+  },
+  {
+    "id": "fibonacci",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { fib } con module.exports. fib(0)=0, fib(1)=1 y fib(n)=fib(n-1)+fib(n-2).",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { fib } = require('./solution.js');\ntest('diez', () => assert.equal(fib(10), 55));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { fib } = require('./solution.js');\ntest('cero', () => assert.equal(fib(0), 0));\ntest('uno', () => assert.equal(fib(1), 1));\ntest('veinte', () => assert.equal(fib(20), 6765));"
+  },
+  {
+    "id": "palindromo",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { isPalindrome } con module.exports. isPalindrome(s) ignora espacios y mayúsculas.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { isPalindrome } = require('./solution.js');\ntest('anita', () => assert.equal(isPalindrome('Anita lava la tina'), true));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { isPalindrome } = require('./solution.js');\ntest('no', () => assert.equal(isPalindrome('hola'), false));\ntest('vacío', () => assert.equal(isPalindrome(''), true));\ntest('panama', () => assert.equal(isPalindrome('A man a plan a canal Panama'), true));"
+  },
+  {
+    "id": "vocales",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { countVowels } con module.exports. countVowels(s) cuenta a,e,i,o,u sin distinguir mayúsculas.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { countVowels } = require('./solution.js');\ntest('hola', () => assert.equal(countVowels('hola'), 2));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { countVowels } = require('./solution.js');\ntest('mayúsculas', () => assert.equal(countVowels('AEIOU'), 5));\ntest('sin vocales', () => assert.equal(countVowels('xyz'), 0));\ntest('vacío', () => assert.equal(countVowels(''), 0));"
+  },
+  {
+    "id": "aplanar",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { flatten } con module.exports. flatten(arr) aplana arrays anidados recursivamente.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { flatten } = require('./solution.js');\ntest('anidado', () => assert.deepEqual(flatten([1, [2, [3, 4]], 5]), [1, 2, 3, 4, 5]));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { flatten } = require('./solution.js');\ntest('vacío', () => assert.deepEqual(flatten([]), []));\ntest('muy anidado', () => assert.deepEqual(flatten([[[]]]), []));\ntest('plano', () => assert.deepEqual(flatten([1, 2]), [1, 2]));"
+  },
+  {
+    "id": "anagrama",
+    "dificultad": "dificil",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { isAnagram } con module.exports. isAnagram(a, b) ignora espacios y mayúsculas.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { isAnagram } = require('./solution.js');\ntest('listen', () => assert.equal(isAnagram('listen', 'silent'), true));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { isAnagram } = require('./solution.js');\ntest('frase', () => assert.equal(isAnagram('Dormitory', 'dirty room'), true));\ntest('no', () => assert.equal(isAnagram('abc', 'abd'), false));\ntest('longitud', () => assert.equal(isAnagram('a', 'aa'), false));"
+  },
+  {
+    "id": "texto-extraer",
+    "dificultad": "medio",
+    "tipo": "texto",
+    "tarea": "Del texto \"Pedido 42: 3 unidades de teclado\" devuelve SOLO JSON con pedido=42, cantidad=3 y producto=\"teclado\".",
+    "schema": {
+      "type": "object",
+      "required": ["pedido", "cantidad", "producto"],
+      "properties": {
+        "pedido": { "type": "integer" },
+        "cantidad": { "type": "integer" },
+        "producto": { "type": "string" }
+      }
+    },
+    "esperado": { "pedido": 42, "cantidad": 3, "producto": "teclado" }
+  },
+  {
+    "id": "texto-sentimiento",
+    "dificultad": "medio",
+    "tipo": "texto",
+    "tarea": "Clasifica \"El envío llegó tarde y roto\" y devuelve JSON con sentimiento=\"negativo\" y motivo=\"envío tarde y roto\".",
+    "schema": {
+      "type": "object",
+      "required": ["sentimiento", "motivo"],
+      "properties": {
+        "sentimiento": { "enum": ["negativo", "positivo", "neutro"] },
+        "motivo": { "type": "string" }
+      }
+    },
+    "esperado": { "sentimiento": "negativo", "motivo": "envío tarde y roto" }
+  },
+  {
+    "id": "texto-csv",
+    "dificultad": "medio",
+    "tipo": "texto",
+    "tarea": "Convierte \"Ada,Lovelace,36\" a JSON con nombre=\"Ada\", apellido=\"Lovelace\" y edad=36.",
+    "schema": {
+      "type": "object",
+      "required": ["nombre", "apellido", "edad"],
+      "properties": {
+        "nombre": { "type": "string" },
+        "apellido": { "type": "string" },
+        "edad": { "type": "integer" }
+      }
+    },
+    "esperado": { "nombre": "Ada", "apellido": "Lovelace", "edad": 36 }
+  },
+  {
+    "id": "texto-prioridad",
+    "dificultad": "dificil",
+    "tipo": "texto",
+    "tarea": "Para \"El servidor de producción está caído y todos los clientes fallan\" devuelve JSON con prioridad=\"alta\" y razon=\"servidor caído\".",
+    "schema": {
+      "type": "object",
+      "required": ["prioridad", "razon"],
+      "properties": {
+        "prioridad": { "enum": ["alta", "media", "baja"] },
+        "razon": { "type": "string" }
+      }
+    },
+    "esperado": { "prioridad": "alta", "razon": "servidor caído" }
+  },
+  {
+    "id": "suma-lista",
+    "dificultad": "medio",
+    "tipo": "codigo",
+    "tarea": "En solution.js exporta { sum } con module.exports. sum(arr) suma todos los números.",
+    "visibles": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { sum } = require('./solution.js');\ntest('lista', () => assert.equal(sum([1, 2, 3]), 6));",
+    "ocultos": "const test = require('node:test');\nconst assert = require('node:assert');\nconst { sum } = require('./solution.js');\ntest('vacía', () => assert.equal(sum([]), 0));\ntest('negativos', () => assert.equal(sum([-1, 1]), 0));\ntest('decimales', () => assert.equal(sum([0.5, 0.5]), 1));"
+  }
+]
